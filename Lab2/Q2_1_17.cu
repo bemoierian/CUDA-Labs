@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
         {
             for (int k = 0; k < columns; k++)
             {
-                fscanf(in_fptr, "%f", &h_A[j * rows + k]);
+                fscanf(in_fptr, "%f", &h_A[j * columns + k]);
             }
         }
         for (int j = 0; j < columns; j++)
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 
         // Launch kernel
         int block_size = 256;
-        int grid_size = (rows + block_size - 1) / block_size;
+        int grid_size = (rows - 1) / block_size + 1;
         matrixVectorMul<<<grid_size, block_size>>>(d_A, d_B, d_C, rows, columns);
 
         // Data transfer: Device to Host
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
         // Append the result to the output file
         for (int j = 0; j < rows; j++)
         {
-            fprintf(out_fptr, "%f\n", h_C[j]);
+            fprintf(out_fptr, "%.1f\n", h_C[j]);
         }
 
         // Free host memory
