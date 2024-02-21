@@ -35,16 +35,37 @@ int main(int argc, char *argv[])
         {
             for (int k = 0; k < columns; k++)
             {
-                fscanf(in_fptr, "%f", &h_A[j * rows + k]);
+                fscanf(in_fptr, "%f", &h_A[j * columns + k]);
+                // printf("Index: %d ", j * columns + k);
+                // printf("Value: %f\n", h_A[j * columns + k]);
             }
         }
         for (int j = 0; j < rows; j++)
         {
             for (int k = 0; k < columns; k++)
             {
-                fscanf(in_fptr, "%f", &h_B[j * rows + k]);
+                fscanf(in_fptr, "%f", &h_B[j * columns + k]);
             }
         }
+        // Print the matrices
+        // printf("Matrix A:\n");
+        // for (int j = 0; j < rows; j++)
+        // {
+        //     for (int k = 0; k < columns; k++)
+        //     {
+        //         printf("%f ", h_A[j * rows + k]);
+        //     }
+        //     printf("\n");
+        // }
+        // printf("Matrix B:\n");
+        // for (int j = 0; j < rows; j++)
+        // {
+        //     for (int k = 0; k < columns; k++)
+        //     {
+        //         printf("%f ", h_B[j * rows + k]);
+        //     }
+        //     printf("\n");
+        // }
         // Device memory allocation
         float *d_A, *d_B, *d_C;
         cudaMalloc((void **)&d_A, size);
@@ -57,7 +78,7 @@ int main(int argc, char *argv[])
 
         // Kernel invocation
         dim3 threadsPerBlock(16, 16);
-        dim3 numBlocks((rows * columns + threadsPerBlock.x - 1) / threadsPerBlock.x, (rows * columns + threadsPerBlock.y - 1) / threadsPerBlock.y);
+        dim3 numBlocks(((rows - 1) / threadsPerBlock.x + 1), (columns - 1) / threadsPerBlock.y + 1);
         MatAdd<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, rows * columns);
 
         // Data transfer: Device to Host
@@ -73,7 +94,7 @@ int main(int argc, char *argv[])
         {
             for (int k = 0; k < columns; k++)
             {
-                fprintf(out_fptr, "%f ", h_C[j * rows + k]);
+                fprintf(out_fptr, "%.1f ", h_C[j * columns + k]);
             }
             fprintf(out_fptr, "\n");
         }
