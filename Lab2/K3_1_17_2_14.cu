@@ -62,8 +62,8 @@ int main(int argc, char *argv[])
         cudaMemcpy(d_B, h_B, size, cudaMemcpyHostToDevice);
 
         // Kernel invocation
-        dim3 threadsPerBlock(16);
-        dim3 numBlocks((columns - 1) / threadsPerBlock.x + 1);
+        int threadsPerBlock = 16;
+        int numBlocks = (columns - 1) / threadsPerBlock + 1;
         MatAdd<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, rows, columns);
 
         // Data transfer: Device to Host
