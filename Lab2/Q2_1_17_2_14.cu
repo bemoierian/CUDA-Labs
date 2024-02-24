@@ -2,16 +2,16 @@
 
 #include <stdio.h>
 
-__global__ void matrixVectorMul(float *matrix, float *vector, float *result, int N, int M)
+__global__ void matrixVectorMul(float *matrix, float *vector, float *result, int height, int width)
 {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (tid < N)
+    if (tid < height)
     {
         float sum = 0.0f;
-        for (int i = 0; i < M; ++i)
+        for (int col = 0; col < width; col++)
         {
-            sum += matrix[tid * M + i] * vector[i];
+            sum += matrix[tid * width + col] * vector[col];
         }
         result[tid] = sum;
     }
@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
         cudaMemcpy(d_B, h_B, vector_size, cudaMemcpyHostToDevice);
 
         // Launch kernel
-        int block_size = 256;
+        int block_size = 16 * 16;
         int grid_size = (rows - 1) / block_size + 1;
         matrixVectorMul<<<grid_size, block_size>>>(d_A, d_B, d_C, rows, columns);
 
