@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 
         // Kernel invocation
         dim3 threadsPerBlock(16);
-        dim3 numBlocks((columns - 1) / threadsPerBlock.x + 1);
+        dim3 numBlocks((rows - 1) / threadsPerBlock.x + 1);
         MatAdd<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, rows, columns);
 
         // Data transfer: Device to Host
