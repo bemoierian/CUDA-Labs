@@ -2,16 +2,14 @@
 
 #include <stdio.h>
 
-#define N 10000
-
-__global__ void MatAdd(float *A, float *B, float *C, int n)
+__global__ void MatAdd(float *A, float *B, float *C, int height, int width)
 {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
-    if (row < n)
+    if (row < height)
     {
-        for (int col = 0; col < n; ++col)
+        for (int col = 0; col < width; col++)
         {
-            C[row * n + col] = A[row * n + col] + B[row * n + col];
+            C[row * width + col] = A[row * width + col] + B[row * width + col];
         }
     }
 }
@@ -63,8 +61,8 @@ int main(int argc, char *argv[])
 
         // Kernel invocation
         dim3 threadsPerBlock(16);
-        dim3 numBlocks((rows - 1) / threadsPerBlock.x + 1);
-        MatAdd<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, rows * columns);
+        dim3 numBlocks((columns - 1) / threadsPerBlock.x + 1);
+        MatAdd<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, rows, columns);
 
         // Data transfer: Device to Host
         cudaMemcpy(h_C, d_C, size, cudaMemcpyDeviceToHost);
