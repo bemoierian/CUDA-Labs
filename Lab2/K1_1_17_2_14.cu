@@ -2,12 +2,12 @@
 
 #include <stdio.h>
 
-__global__ void MatAdd(float *A, float *B, float *C, int n)
+__global__ void MatAdd(float *A, float *B, float *C, int height, int width)
 {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int j = blockIdx.y * blockDim.y + threadIdx.y;
-    if (i < n && j < n)
-        C[i * n + j] = A[i * n + j] + B[i * n + j];
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row < height && col < width)
+        C[row * width + col] = A[row * width + col] + B[row * width + col];
 }
 
 int main(int argc, char *argv[])
@@ -77,9 +77,10 @@ int main(int argc, char *argv[])
         cudaMemcpy(d_B, h_B, size, cudaMemcpyHostToDevice);
 
         // Kernel invocation
+        // Width: columns, Height: rows
         dim3 threadsPerBlock(16, 16);
-        dim3 numBlocks(((rows - 1) / threadsPerBlock.x + 1), (columns - 1) / threadsPerBlock.y + 1);
-        MatAdd<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, rows * columns);
+        dim3 numBlocks(((columns - 1) / threadsPerBlock.x + 1), (rows - 1) / threadsPerBlock.y + 1);
+        MatAdd<<<numBlocks, threadsPerBlock>>>(d_A, d_B, d_C, rows, columns);
 
         // Data transfer: Device to Host
         cudaMemcpy(h_C, d_C, size, cudaMemcpyDeviceToHost);
