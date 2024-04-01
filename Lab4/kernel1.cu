@@ -1,9 +1,10 @@
 #include <iostream>
 #include <fstream>
+#include <opencv2/opencv.hpp>
 
 // Define image dimensions
-#define IMAGE_WIDTH 256
-#define IMAGE_HEIGHT 256
+#define IMAGE_WIDTH 600
+#define IMAGE_HEIGHT 350
 #define IMAGE_CHANNELS 3
 
 // Define convolution kernel dimensions
@@ -33,7 +34,7 @@ __global__ void convolution3D(float *input, int width, int height, int depth, fl
                     int currChannel = N_start_channel + l;
                     if (currRow > -1 && currRow < height && currCol > -1 && currCol < width && currChannel > -1 && currChannel < depth)
                     {
-                        pixValue += input[(currRow * width + currCol) * depth + currChannel] * mask[(j * maskWidth + k) * depth + l];
+                        pixValue += input[(currRow * width + currCol) * depth + currChannel] * mask[(j * maskWidth + k) * maskWidth + l];
                     }
                 }
             }
@@ -44,8 +45,8 @@ __global__ void convolution3D(float *input, int width, int height, int depth, fl
 }
 
 float *createMask(int maskWidth, int depth);
-float *readImage(std::string inputPath);
-void saveImage(std::string outputPath, float *image);
+float *readImageToFloat(const std::string &imagePath);
+void saveFloatImage(const std::string &outputPath, float *imageData, int width, int height);
 int main(int argc, char **argv)
 {
     if (argc < 4)
@@ -63,10 +64,14 @@ int main(int argc, char **argv)
     for (int i = 0; i < batch_size; ++i)
     {
         std::string inputPath = inputFolder + "/image_" + std::to_string(i) + ".jpg";
-        std::string outputPath = outputFolder + "/output_" + std::to_string(i) + ".jpg";
+        std::string outputPath = "./" + outputFolder + "/output_new_" + std::to_string(i) + ".jpg";
 
-        float *inputImage = readImage(inputPath);
-        std::cout << "Pixel 0: " << inputImage[0] << std::endl;
+        float *inputImage = readImageToFloat(inputPath);
+        std::cout << "Pixel 50,50,0: " << inputImage[(50 * IMAGE_WIDTH + 50) * IMAGE_CHANNELS + 0] << std::endl;
+        std::cout << "Pixel 50,50,1: " << inputImage[(50 * IMAGE_WIDTH + 50) * IMAGE_CHANNELS + 1] << std::endl;
+        std::cout << "Pixel 50,50,2: " << inputImage[(50 * IMAGE_WIDTH + 50) * IMAGE_CHANNELS + 2] << std::endl;
+        std::string outputPath2 = "./" + outputFolder + "/original_" + std::to_string(i) + ".jpg";
+        saveFloatImage(outputPath2, inputImage, IMAGE_WIDTH, IMAGE_HEIGHT);
 
         // Create edge detection mask
         float *mask = createMask(MASK_WIDTH, IMAGE_CHANNELS);
@@ -83,7 +88,7 @@ int main(int argc, char **argv)
         cudaMemcpy(d_mask, mask, maskSize, cudaMemcpyHostToDevice);
 
         // Define grid and block dimensions
-        dim3 threadsPerBlock(16, 16, 1);
+        dim3 threadsPerBlock(16, 16, 3);
         dim3 numBlocks((IMAGE_WIDTH + threadsPerBlock.x - 1) / threadsPerBlock.x,
                        (IMAGE_HEIGHT + threadsPerBlock.y - 1) / threadsPerBlock.y,
                        (IMAGE_CHANNELS + threadsPerBlock.z - 1) / threadsPerBlock.z);
@@ -96,7 +101,11 @@ int main(int argc, char **argv)
         cudaMemcpy(h_output, d_output, imageSize, cudaMemcpyDeviceToHost);
 
         // Save output image to binary file
-        saveImage(outputPath, h_output);
+        std::cout << "Output Pixel 50,50,0: " << h_output[(50 * IMAGE_WIDTH + 50) * IMAGE_CHANNELS + 0] << std::endl;
+        std::cout << "Output Pixel 50,50,1: " << h_output[(50 * IMAGE_WIDTH + 50) * IMAGE_CHANNELS + 1] << std::endl;
+        std::cout << "Output Pixel 50,50,2: " << h_output[(50 * IMAGE_WIDTH + 50) * IMAGE_CHANNELS + 2] << std::endl;
+
+        saveFloatImage(outputPath, h_output, IMAGE_WIDTH, IMAGE_HEIGHT);
 
         // Free device memory
         cudaFree(d_input);
@@ -115,13 +124,10 @@ float *createMask(int maskWidth, int depth)
     float *mask = new float[maskWidth * maskWidth * depth];
 
     // Sobel filter for edge detection (example)
-    // float sobelX[maskWidth][maskWidth] = {{-1, 0, 1},
-    //                                       {-2, 0, 2},
-    //                                       {-1, 0, 1}};
-    // 3*3 (1/9) filter
-    float sobelX[maskWidth][maskWidth] = {{1 / 9, 1 / 9, 1 / 9},
-                                          {1 / 9, 1 / 9, 1 / 9},
-                                          {1 / 9, 1 / 9, 1 / 9}};
+    float smoothFactor = 1.0 / (3.0 * 3.0 * 3.0);
+    float maskVal[maskWidth][maskWidth] = {{smoothFactor, smoothFactor, smoothFactor},
+                                           {smoothFactor, smoothFactor, smoothFactor},
+                                           {smoothFactor, smoothFactor, smoothFactor}};
 
     // Fill the mask with the Sobel filter values
     for (int i = 0; i < maskWidth; ++i)
@@ -130,33 +136,50 @@ float *createMask(int maskWidth, int depth)
         {
             for (int k = 0; k < depth; ++k)
             {
-                mask[(i * maskWidth + j) * depth + k] = sobelX[i][j];
+                mask[(i * maskWidth + j) * depth + k] = maskVal[i][j];
             }
         }
     }
 
     return mask;
 }
-float *readImage(std::string inputPath)
+
+// Function to read an image and convert it to float*
+float *readImageToFloat(const std::string &imagePath)
 {
-    // Load image from binary file
-    std::ifstream inputFile(inputPath, std::ios::binary);
-    if (!inputFile)
+    // Read an image using OpenCV as RGB
+    cv::Mat image = cv::imread(imagePath, cv::IMREAD_COLOR);
+    if (image.empty())
     {
-        std::cerr << "Could not read image: " << inputPath << std::endl;
+        std::cerr << "Error: Unable to load image" << std::endl;
         return nullptr;
     }
-    float *inputImage = new float[IMAGE_WIDTH * IMAGE_HEIGHT * IMAGE_CHANNELS];
-    inputFile.read(reinterpret_cast<char *>(inputImage), sizeof(float) * IMAGE_WIDTH * IMAGE_HEIGHT * IMAGE_CHANNELS);
-    inputFile.close();
 
-    return inputImage;
+    // Convert the image to float
+    cv::Mat imageFloat;
+    image.convertTo(imageFloat, CV_32F);
+
+    // Allocate memory for float* to store the image data
+    float *imageData = new float[image.rows * image.cols * image.channels()];
+
+    // Copy the image data to a float*
+    memcpy(imageData, imageFloat.data, image.rows * image.cols * image.channels() * sizeof(float));
+
+    return imageData;
 }
-void saveImage(std::string outputPath, float *image)
-{
 
-    // Save image to binary file
-    std::ofstream outputFile(outputPath, std::ios::binary);
-    outputFile.write(reinterpret_cast<char *>(image), sizeof(float) * IMAGE_WIDTH * IMAGE_HEIGHT * IMAGE_CHANNELS);
-    outputFile.close();
+void saveFloatImage(const std::string &outputPath, float *imageData, int width, int height)
+{
+    // Create a cv::Mat from the float* data
+    cv::Mat imageFloat(height, width, CV_32FC3, imageData);
+
+    // Convert the image back to 8-bit unsigned char
+    cv::Mat image;
+    imageFloat.convertTo(image, CV_8UC3);
+
+    // Save the image using OpenCV
+    if (!cv::imwrite(outputPath, image))
+    {
+        std::cout << "Error: Unable to save image" << std::endl;
+    }
 }
