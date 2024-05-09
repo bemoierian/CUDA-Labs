@@ -1,0 +1,3 @@
+
+- We've finished all three kernels and implemented them in Python using PyTorch. While we're confident in the correctness of our implementation because it yields accurate results.
+- we've encountered inconsistencies in the profiling of the kernels. Surprisingly, kernel 1, which accesses input from global memory, sometimes exhibits faster performance than both other kernels.
